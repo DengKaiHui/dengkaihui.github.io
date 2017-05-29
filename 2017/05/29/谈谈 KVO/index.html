@@ -1,0 +1,799 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Hexo, NexT" />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.1" />
+
+
+
+
+
+
+<meta name="description" content="本文结构如下：  Why?  （为什么要用KVO） What? （KVO是什么） How? （ KVO怎么用） More （更多细节） 原理 自己实现KVO    在我的上一篇文章浅谈 iOS Notification中，我们说到了iOS中观察者模式的一种实现方式：NSNotification 通知，这次我们再来谈谈iOS中观察者模式的另一种实现方式：KVO 。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="谈谈 KVO">
+<meta property="og:url" content="http://yoursite.com/2017/05/29/谈谈 KVO/index.html">
+<meta property="og:site_name" content="邓凯辉的技术博客">
+<meta property="og:description" content="本文结构如下：  Why?  （为什么要用KVO） What? （KVO是什么） How? （ KVO怎么用） More （更多细节） 原理 自己实现KVO    在我的上一篇文章浅谈 iOS Notification中，我们说到了iOS中观察者模式的一种实现方式：NSNotification 通知，这次我们再来谈谈iOS中观察者模式的另一种实现方式：KVO 。">
+<meta property="og:image" content="http://upload-images.jianshu.io/upload_images/762048-24b746481d92f553.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:image" content="http://upload-images.jianshu.io/upload_images/762048-01b82c3cd9c0e962.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+<meta property="og:updated_time" content="2017-05-29T12:33:24.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="谈谈 KVO">
+<meta name="twitter:description" content="本文结构如下：  Why?  （为什么要用KVO） What? （KVO是什么） How? （ KVO怎么用） More （更多细节） 原理 自己实现KVO    在我的上一篇文章浅谈 iOS Notification中，我们说到了iOS中观察者模式的一种实现方式：NSNotification 通知，这次我们再来谈谈iOS中观察者模式的另一种实现方式：KVO 。">
+<meta name="twitter:image" content="http://upload-images.jianshu.io/upload_images/762048-24b746481d92f553.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":0,"b2t":false,"scrollpercent":false},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://yoursite.com/2017/05/29/谈谈 KVO/"/>
+
+
+
+
+
+  <title>谈谈 KVO | 邓凯辉的技术博客</title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">邓凯辉的技术博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2017/05/29/谈谈 KVO/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="邓凯辉">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.git">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="邓凯辉的技术博客">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">谈谈 KVO</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-05-29T18:58:41+08:00">
+                2017-05-29
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p>本文结构如下：</p>
+<ul>
+<li>Why?  （为什么要用KVO）</li>
+<li>What? （KVO是什么）</li>
+<li>How? （ KVO怎么用）</li>
+<li>More （更多细节）</li>
+<li>原理</li>
+<li>自己实现KVO</li>
+</ul>
+</blockquote>
+<hr>
+<p>在我的上一篇文章<a href="http://www.jianshu.com/p/8832f019c17f" target="_blank" rel="external">浅谈 iOS Notification</a>中，我们说到了iOS中观察者模式的一种实现方式：<strong>NSNotification 通知</strong>，这次我们再来谈谈iOS中观察者模式的另一种实现方式：<strong>KVO</strong> 。</p>
+<a id="more"></a>
+<h3 id="Why？"><a href="#Why？" class="headerlink" title="Why？"></a>Why？</h3><p>假如，有一个person类，和一个Account类，account类中又有两个公开的属性，balance和interestRate，当account中的balance和interestRate发生变化时，需要知道通知到这个person，这个要求很正常，我的银行账户里的钱增加或减少了我当然要及时知道啊。有人可能会想，每隔一段时间去轮询Account中的balance和interestRate，当其发生变化就通知person，但是这样做不仅低效而且通知也不能及时发出。<br><img src="http://upload-images.jianshu.io/upload_images/762048-24b746481d92f553.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt=""></p>
+<p>这个时候KVO就派上用场了。</p>
+<h3 id="What？"><a href="#What？" class="headerlink" title="What？"></a>What？</h3><p>KVO到底是什么呢？不着急，要说KVO还得先说下KVC，KVC（Key-value coding）是一种基于<code>NSKeyValueCoding</code>非正式协议的机制，能让我们直接使用一个或一串字符串标识符去访问，操作类的属性。<br>常用的方法比如：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">- (nullable id)valueForKey:(NSString *)key;</div><div class="line">- (void)setValue:(nullable id)value forKey:(NSString *)key;</div><div class="line"></div><div class="line">- (nullable id)valueForKeyPath:(NSString *)keyPath;</div><div class="line">- (void)setValue:(nullable id)value forKeyPath:(NSString *)keyPath;</div></pre></td></tr></table></figure></p>
+<p>通过这些方法加上正确的标识符(一般和属性同名)，可以直接获取或者设置一个类的属性，甚至可以轻易越过多个类的层级结构，直接获取目标属性。<br><img src="http://upload-images.jianshu.io/upload_images/762048-01b82c3cd9c0e962.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240" alt=""></p>
+<p>KVC还提供了集合操作的方法，直接获取到集合属性的同时还能对其进行求和，取平均数，求最大最小值等操作，如下为求和操作，具体可以到<a href="https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/KeyValueCoding/index.html#//apple_ref/doc/uid/10000107-SW1" target="_blank" rel="external">苹果官方文档</a>详细了解。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">NSNumber *amountSum = [self.transactions valueForKeyPath:@&quot;@sum.amount&quot;];</div></pre></td></tr></table></figure></p>
+<h5 id="KVO"><a href="#KVO" class="headerlink" title="KVO"></a>KVO</h5><p>KVO (Key-Value Observing) 是Cocoa提供的一种基于KVC的机制，允许一个对象去监听另一个对象的某个属性，当该属性改变时系统会去通知监听的对象(不是被监听的对象)。</p>
+<p>上面那个例子如果用KVO实现的话，大概就是，用Person类的一个对象去监听Account类的一个对象的属性，然后当Account类对象的相应属性改变时，Person类的对象就会收到通知。这也是iOS种观察者模式的一种实现方式。</p>
+<p>也就是说，一般情况下，任何一个对象可以监听任何一个对象（当然也包括自己本身）的任意属性，然后在其属性变化后收到通知。</p>
+<h3 id="How"><a href="#How" class="headerlink" title="How?"></a>How?</h3><p>那么KVO怎么用呢？KVO的使用步骤主要分为3步：<strong>添加监听</strong>，<strong>接收通知</strong>和<strong>移除监听</strong>。</p>
+<h5 id="1-添加监听"><a href="#1-添加监听" class="headerlink" title="1. 添加监听"></a>1. 添加监听</h5><p>通过以下方法添加一个监听者：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">- (void)addObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath options:(NSKeyValueObservingOptions)options context:(nullable void *)context;</div></pre></td></tr></table></figure></p>
+<p>我们重点关注一下这个方法的4个参数：</p>
+<ul>
+<li><p><strong>observer</strong>：就是要添加的监听者对象，，当监听的属性发生改变时就会去通知该对象，该对象必须实现<code>- observeValueForKeyPath:ofObject:change:context:</code>方法，要不然当监听的属性的改变通知发出来，却发现没有相应的接收方法时，程序会抛出异常。</p>
+</li>
+<li><p><strong>keyPath</strong>：就是要被监听的属性，这里和KVC的规则一样。但是这个值不能传nil，要不然会报错。通常我们在用的时候会传一个与属性同名的字符串，但是这样可能会因为拼写错误，导致监听不成功，一个推荐的做法是，用这种方式<code>NSStringFromSelector(@selector(propertyName))</code>，其实就是是将属性的getter方法转换成了字符串，这样做的好处就是，如果你写错了属性名，xcode会用警告提醒你。</p>
+</li>
+<li><p><strong>options</strong>：是一些配置选项，用来指明通知发出的时机和通知响应方法<code>- observeValueForKeyPath:ofObject:change:context:</code>的<code>change</code>字典中包含哪些值，它的取值有4个，定义在<code>NSKeyValueObservingOptions</code>中，可以用<code>|</code>符号连接，如下：<br>1&gt; <strong>NSKeyValueObservingOptionNew</strong>：指明接受通知方法参数中的<code>change</code>字典中应该包含改变后的新值。</p>
+<p>2&gt;<strong>NSKeyValueObservingOptionOld</strong>: 指明接受通知方法参数中的<code>change</code>字典中应该包含改变前的旧值。</p>
+<p>3&gt;<strong>NSKeyValueObservingOptionInitial</strong>: 当指定了这个选项时，在<code>addObserver:forKeyPath:options:context:</code>消息被发出去后，甚至不用等待这个消息返回，监听者对象会马上收到一个通知。这种通知只会发送一次，你可以利用这种“一次性“的通知来确定要监听属性的初始值。当同时制定这3个选项时，这种通知的<code>change</code>字典中只会包含新值，而不会包含旧值。虽然这时候的新值实际上是改变前的’旧值’，但是这个值对于监听者来说是新的。</p>
+<p>4&gt;<strong>NSKeyValueObservingOptionPrior</strong>：当指定了这个选项时，在被监听的属性被改变前，监听者对象就会收到一个通知（一般的通知发出时机都是在属性改变后，虽然change字典中包含了新值和旧值，但是通知还是在属性改变后才发出），这个通知会包含一个<code>NSKeyValueChangeNotificationIsPriorKey</code>key，其对应的值为一个NSNumber类型的<code>YES</code>。当同时指定该值、new和old的话，<code>change</code>字典会包含旧值而不会包含新值。你可以在这个通知中调用<code>- (void)willChangeValueForKey:(NSString *)key;</code></p>
+</li>
+<li><strong>context</strong>：添加监听方法的最后一个参数，是一个可选的参数，可以传任何数据，这个参数最后会被传到监听者的响应方法中，可以用来区分不同通知，也可以用来传值。如果你要用context来区分不同的通知，一个推荐的做法是声明一个静态变量，其保持它自己的地址，这个变量没有什么意义，但是却能起到区分的作用，如下：<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">static void *PersonAccountBalanceContext = &amp;PersonAccountBalanceContext;</div><div class="line">static void *PersonAccountInterestRateContext = &amp;PersonAccountInterestRateContext;</div></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>然后，结合上面Person，account的例子，我们可以给Account对象添加监听：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line"> - (void)registerAsObserverForAccount:(Account*)account &#123;</div><div class="line">    [account addObserver:self</div><div class="line">              forKeyPath:@&quot;balance&quot;</div><div class="line">                 options:(NSKeyValueObservingOptionNew |</div><div class="line">                          NSKeyValueObservingOptionOld)</div><div class="line">                 context:PersonAccountBalanceContext];</div><div class="line"> </div><div class="line">    [account addObserver:self</div><div class="line">              forKeyPath:@&quot;interestRate&quot;</div><div class="line">                 options:(NSKeyValueObservingOptionNew |</div><div class="line">                          NSKeyValueObservingOptionOld)</div><div class="line">                  context:PersonAccountInterestRateContext];</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<blockquote>
+<p>需要注意的是，添加监听的方法<code>addObserver:forKeyPath:options:context:</code>并不会对监听和被监听的对象以及context做强引用，你必须自己保证他们在监听过程中不被释放。</p>
+</blockquote>
+<h5 id="2-接受通知"><a href="#2-接受通知" class="headerlink" title="2. 接受通知"></a>2. 接受通知</h5><p>前面说过了，每一个监听者对象都必须实现下面这个方法来接收通知：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line">- (void)observeValueForKeyPath:(nullable NSString *)keyPath ofObject:(nullable id)object change:(nullable NSDictionary&lt;NSKeyValueChangeKey, id&gt; *)change context:(nullable void *)context;</div></pre></td></tr></table></figure></p>
+<p>keyPath，object，context和监听方法中指定的一样，关于change参数，它是一个字典，有五个常量作为它的键：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">NSString *const NSKeyValueChangeKindKey;  </div><div class="line">NSString *const NSKeyValueChangeNewKey;  </div><div class="line">NSString *const NSKeyValueChangeOldKey;  </div><div class="line">NSString *const NSKeyValueChangeIndexesKey;  </div><div class="line">NSString *const NSKeyValueChangeNotificationIsPriorKey;</div></pre></td></tr></table></figure></p>
+<p>一个一个分析下：</p>
+<ul>
+<li><strong>NSKeyValueChangeKindKey</strong>：指明了变更的类型，值为“NSKeyValueChange”枚举中的某一个，类型为NSNumber。<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">enum &#123;</div><div class="line">   NSKeyValueChangeSetting = 1,</div><div class="line">   NSKeyValueChangeInsertion = 2,</div><div class="line">   NSKeyValueChangeRemoval = 3,</div><div class="line">   NSKeyValueChangeReplacement = 4</div><div class="line">&#125;;</div><div class="line">typedef NSUInteger NSKeyValueChange;</div></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>一般情况下返回的都是1也就是第一个NSKeyValueChangeSetting，但是如果你监听的属性是一个集合对象的话，当这个集合中的元素被插入，删除，替换时，就会分别返回<code>NSKeyValueChangeInsertion</code>，<code>NSKeyValueChangeRemoval</code>和<code>NSKeyValueChangeReplacement</code>。</p>
+<ul>
+<li><strong>NSKeyValueChangeNewKey</strong>：被监听属性改变后新值的key，当监听属性为一个集合对象，且<code>NSKeyValueChangeKindKey</code>不为<code>NSKeyValueChangeSetting</code>时，该值返回的是一个数组，包含插入，替换后的新值（删除操作不会返回新值）。</li>
+<li><p><strong>NSKeyValueChangeOldKey</strong>：被监听属性改变前旧值的key，当监听属性为一个集合对象，且<code>NSKeyValueChangeKindKey</code>不为<code>NSKeyValueChangeSetting</code>时，该值返回的是一个数组，包含删除，替换前的旧值（插入操作不会返回旧值）</p>
+</li>
+<li><p><strong>NSKeyValueChangeIndexesKey</strong>：如果<code>NSKeyValueChangeKindKey</code>的值为<code>NSKeyValueChangeInsertion</code>, <code>NSKeyValueChangeRemoval</code>, 或者 <code>NSKeyValueChangeReplacement</code>，这个键的值是一个NSIndexSet对象，包含了增加，移除或者替换对象的index。</p>
+</li>
+<li><strong>NSKeyValueChangeNotificationIsPriorKey</strong>：如果注册监听者是options中指明了<code>NSKeyValueObservingOptionPrior</code>，<code>change</code>字典中就会带有这个key，值为NSNumber类型的YES.</li>
+</ul>
+<p>最后，完整的change字典大概就类似这样：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">NSDictionary *change = @&#123;</div><div class="line">                         NSKeyValueChangeKindKey : NSKeyValueChange(枚举值),</div><div class="line">                         NSKeyValueChangeNewKey : newValue,</div><div class="line">                         NSKeyValueChangeOldKey : oldValue,</div><div class="line">                         NSKeyValueChangeIndexesKey : @[NSIndexSet, NSIndexSet],</div><div class="line">                         NSKeyValueChangeNotificationIsPriorKey : @1,</div><div class="line">                         &#125;;</div></pre></td></tr></table></figure></p>
+<p>继续用上面的例子实现接受通知如下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div></pre></td><td class="code"><pre><div class="line"> - (void)observeValueForKeyPath:(NSString *)keyPath</div><div class="line">                      ofObject:(id)object</div><div class="line">                        change:(NSDictionary *)change</div><div class="line">                       context:(void *)context &#123;</div><div class="line"> </div><div class="line">    if (context == PersonAccountBalanceContext) &#123;</div><div class="line">        // Do something with the balance…</div><div class="line"> </div><div class="line">    &#125; else if (context == PersonAccountInterestRateContext) &#123;</div><div class="line">        // Do something with the interest rate…</div><div class="line"> </div><div class="line">    &#125; else &#123;</div><div class="line">        // Any unrecognized context must belong to super</div><div class="line">        [super observeValueForKeyPath:keyPath</div><div class="line">                             ofObject:object</div><div class="line">                               change:change</div><div class="line">                               context:context];</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<blockquote>
+<p>你可以通过context或者keypath来区分不同的通知，但是要注意的是，正如上面实例代码中那样，当接收到一个不能识别的context或者keypath的话，需要调用一下父类的<code>- observeValueForKeyPath:ofObject:change:context:</code>方法</p>
+</blockquote>
+<h5 id="3-移除监听"><a href="#3-移除监听" class="headerlink" title="3. 移除监听"></a>3. 移除监听</h5><p>当一个监听者完成了它的监听任务之后，就需要注销(移除)监听者，调用以下2个方法来移除监听。通常会在<code>-dealloc</code>方法或者<code>-observeValueForKeyPath:ofObject:change:context:</code>方法中移除。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line">- (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath context:(nullable void *)context</div><div class="line">或者</div><div class="line">- (void)removeObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath;</div></pre></td></tr></table></figure></p>
+<p>有几点需要注意的：</p>
+<ul>
+<li><p>当你向一个不是监听者的对象发送remove消息的时候（也可能是，你发送remove消息时，接受消息的对象已经被remove了一次，或者在注册为监听者前就调用了remove），xcode会抛出一个<code>NSRangeException</code>异常，所以，保险的做法是，把remove操作放在<code>try/catch</code>中。</p>
+</li>
+<li><p>一个监听者在其被销毁时，并不会自己注销监听，而给一个已经销毁的监听者发送通知，会造成野指针错误。所以至少保证，在监听者被释放前，将其监听注销。保证有一个add方法，就有一个remove方法。</p>
+</li>
+</ul>
+<h3 id="More"><a href="#More" class="headerlink" title="More"></a>More</h3><p>再说更多的一些东西，想让类的某个属性支持KVO机制的话，这个类必须满足一下3点：</p>
+<ol>
+<li>这个类必须使得该属性支持KVC。</li>
+<li>这个类必须保证能够将改变通知发出。</li>
+<li>当有依赖关系的时候，注册合适的依赖键。</li>
+</ol>
+<ul>
+<li><p>第一个条件：这个类必须使得该属性支持KVC<br>就是需要实现与该属性对应的getter和setter方法和其他一些可选方法。幸运的是，<code>NSObject</code>类已经帮我们实现了这些，只要你的类最终是继承自<code>NSObject</code>，并且使用正常的方式创建属性，这些属性都是支持KVO的。</p>
+<blockquote>
+<p>KVO支持的类型和KVC一样，包括对象类型，标量（例如 <code>int</code> 和 <code>CGFloat</code>）和 <code>struct</code>（例如 <code>CGRect</code>）。</p>
+</blockquote>
+</li>
+<li><p>第二个条件：这个类必须保证能够将改变通知发出。<br>通知发出的方式又分为<strong>自动通知</strong>和<strong>手动通知</strong>：<br>1&gt; <strong>自动通知</strong><br>自动通知由<code>NSObject</code>默认实现了，也就是说一般情况下，你不用写额外的一些代码，属性改变的通知就会自动发出，这也是我们平常开发中接触最多的。</p>
+<p>触发自动通知发出的方式包括下面这些：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div></pre></td><td class="code"><pre><div class="line">// Call the accessor method.</div><div class="line">[account setName:@&quot;Savings&quot;];</div><div class="line"></div><div class="line">// Use setValue:forKey:.</div><div class="line">[account setValue:@&quot;Savings&quot; forKey:@&quot;name&quot;];</div><div class="line"></div><div class="line">// Use a key path, where &apos;account&apos; is a kvc-compliant property of &apos;document&apos;.</div><div class="line">[document setValue:@&quot;Savings&quot; forKeyPath:@&quot;account.name&quot;];</div><div class="line"></div><div class="line">// Use mutableArrayValueForKey: to retrieve a relationship proxy object.</div><div class="line">Transaction *newTransaction = &lt;#Create a new transaction for the account#&gt;;</div><div class="line">NSMutableArray *transactions = [account mutableArrayValueForKey:@&quot;transactions&quot;];</div><div class="line">[transactions addObject:newTransaction];</div></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>其中包括调用<code>setter</code>方法，调用KVC的<code>setValue:forKey:</code>和<code>setValue:forKeyPath:</code>,最后一个方法需要说一下,<code>mutableArrayValueForKey:</code>也是KVC的方法，大家应该都知道，如果你用KVO监听了一个集合对象（比如一个数组），当你给数组发送<code>addObject:</code>消息时，是不会触发KVO通知的，但是通过<code>mutableArrayValueForKey:</code>这个方法对集合对象进行的相关操作（增加，删除，替换元素）就会触发KVO通知，这个方法会返回一个<strong>中间代理对象</strong>，这个中间代理对象的类会指向一个<strong>中间类</strong>，你在这个代理对象上进行的操作最终应在原始对象上造成同样的效果。<br>2&gt; <strong>手动通知</strong><br>有时候，你可能会想控制通知的发送，比如，阻止一些不必要的通知发出，或者把一组类似的通知合并成一个，这时候就需要手动发送通知了。</p>
+<p> 首先，你需要重写<code>NSObject</code>的一个类方法，来指明你不想让哪个属性的改变通知自动发出。</p>
+ <figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">+ (BOOL)automaticallyNotifiesObserversForKey:(NSString *)theKey &#123;</div><div class="line"></div><div class="line">   BOOL automatic = NO;</div><div class="line">   if ([theKey isEqualToString:@&quot;balance&quot;]) &#123;</div><div class="line">       automatic = NO;</div><div class="line">   &#125;</div><div class="line">   else &#123;</div><div class="line">       automatic = [super automaticallyNotifiesObserversForKey:theKey];</div><div class="line">   &#125;</div><div class="line">   return automatic;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>如上，return <code>NO</code>就可以阻止，该<code>key</code>对应的属性改变时，通知不会自动发送给监听者对象，当然对于其他的属性别忘了调用<code>super</code>方法保持它原来的状态。（改方法默认返回YES）</p>
+<p> 然后，你需要重写你想手动发送通知属性的setter方法，然后在属性值改变之前和之后分别调用<code>willChangeValueForKey:</code>和<code>didChangeValueForKey:</code>方法。<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div></pre></td><td class="code"><pre><div class="line">- (void)setBalance:(double)theBalance &#123;</div><div class="line">   [self willChangeValueForKey:@&quot;balance&quot;];</div><div class="line">   _balance = theBalance;</div><div class="line">   [self didChangeValueForKey:@&quot;balance&quot;];</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>这样就基本实现了一个KVO的手动通知，当该属性值改变时，监听者对象就能收到改变通知了。</p>
+<p> 你还可以过滤一些通知，像下面的例子就是只有当属性真正改变时才会发出通知<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line">- (void)setBalance:(double)theBalance &#123;</div><div class="line">   if (theBalance != _balance) &#123;</div><div class="line">       [self willChangeValueForKey:@&quot;balance&quot;];</div><div class="line">       _balance = theBalance;</div><div class="line">       [self didChangeValueForKey:@&quot;balance&quot;];</div><div class="line">   &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p> 如果一个操作导致了多个键的变化，你必须嵌套变更通知：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">- (void)setBalance:(double)theBalance &#123;</div><div class="line">   [self willChangeValueForKey:@&quot;balance&quot;];</div><div class="line">   [self willChangeValueForKey:@&quot;itemChanged&quot;];</div><div class="line">   _balance = theBalance;</div><div class="line">   _itemChanged = _itemChanged+1;</div><div class="line">   [self didChangeValueForKey:@&quot;itemChanged&quot;];</div><div class="line">   [self didChangeValueForKey:@&quot;balance&quot;];</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>在to-many关系操作的情形中，你不仅必须表明key是什么，还要表明变更类型和影响到的索引。变更类型是一个 NSKeyValueChange值，被影响对象的索引是一个 NSIndexSet对象。</p>
+<p> 下面的代码示范了在to-many关系transactions对象中的删除操作：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line">- (void)removeTransactionsAtIndexes:(NSIndexSet *)indexes &#123;</div><div class="line">   [self willChange:NSKeyValueChangeRemoval</div><div class="line">       valuesAtIndexes:indexes forKey:@&quot;transactions&quot;];</div><div class="line"></div><div class="line">   // Remove the transaction objects at the specified indexes.</div><div class="line"></div><div class="line">   [self didChange:NSKeyValueChangeRemoval</div><div class="line">       valuesAtIndexes:indexes forKey:@&quot;transactions&quot;];</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<ul>
+<li><p>第三个条件：这个类必须使得该属性支持KVC</p>
+<p>有时候会存在这样一种情况，一个属性的改变依赖于别的一个或多个属性的改变，也就是说当别的属性改了，这个属性也会跟着改变，比如说一个人的全名fullName包括firstName和lastName，当firstName或者lastName中任何一个值改变了，fullName也就改变了。一个监听者监听了fullName，当firstName或者lastName改变时，这个监听者也应该被通知。</p>
+<p>一种方法就是重写<code>keyPathsForValuesAffectingValueForKey:</code>方法去指明<code>fullName</code>属性是依赖于<code>lastName</code>和<code>firstName</code>的：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div></pre></td><td class="code"><pre><div class="line">+ (NSSet *)keyPathsForValuesAffectingValueForKey:(NSString *)key &#123;</div><div class="line"></div><div class="line">   NSSet *keyPaths = [super keyPathsForValuesAffectingValueForKey:key];</div><div class="line"></div><div class="line">   if ([key isEqualToString:@&quot;fullName&quot;]) &#123;</div><div class="line">       NSArray *affectingKeys = @[@&quot;lastName&quot;, @&quot;firstName&quot;];</div><div class="line">       keyPaths = [keyPaths setByAddingObjectsFromArray:affectingKeys];</div><div class="line">   &#125;</div><div class="line">   return keyPaths;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+</li>
+</ul>
+<p>另一种实现同样结果的方法是实现一个遵循命名方式为<code>keyPathsForValuesAffecting&lt;Key&gt;</code>的类方法，<code>&lt;Key&gt;</code>是依赖于其他值的属性名（首字母大写），用上面代码的例子来重新实现一下：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"> + (NSSet *)keyPathsForValuesAffectingFullName &#123;</div><div class="line">    return [NSSet setWithObjects:@&quot;lastName&quot;, @&quot;firstName&quot;, nil];</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>但是在To-many Relationships中（比如数组属性），上面的方法就不管用了，比如，假如你有一个<code>Department</code>类，它有一个针对<code>Employee</code>类的to-many关系（即拥有一个装有<code>Employee</code>类对象的数组），<code>Employee</code>类有<code>salary</code>属性。你希望<code>Department</code>类有一个<code>totalSalary</code>属性来计算所有员工的薪水，也就是在这个关系中<code>Department</code>的<code>totalSalary</code>依赖于所有<code>Employee</code>的<code>salary</code>属性。这种情况你不能通过实现<code>keyPathsForValuesAffectingTotalSalary</code>方法并返回<code>employees.salary</code>。</p>
+<p> 有两种解决方法：</p>
+<ol>
+<li><p>你可以用KVO将parent（比如Department）作为所有children（比如Employee）相关属性的观察者。你必须在把child添加或删除到parent时也把parent作为child的观察者添加或删除。在<code>observeValueForKeyPath:ofObject:change:context:</code>方法中我们可以针对被依赖项的变更来更新依赖项的值：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div></pre></td><td class="code"><pre><div class="line"> - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context &#123;</div><div class="line"> </div><div class="line">  if (context == totalSalaryContext) &#123;</div><div class="line">      [self updateTotalSalary];</div><div class="line">  &#125;</div><div class="line">  else</div><div class="line">  // deal with other observations and/or invoke super...</div><div class="line">&#125;</div><div class="line"> </div><div class="line"> - (void)updateTotalSalary &#123;</div><div class="line">  [self setTotalSalary:[self valueForKeyPath:@&quot;employees.@sum.salary&quot;]];</div><div class="line">&#125;</div><div class="line"> </div><div class="line"> - (void)setTotalSalary:(NSNumber *)newTotalSalary &#123;</div><div class="line"> </div><div class="line">  if (totalSalary != newTotalSalary) &#123;</div><div class="line">      [self willChangeValueForKey:@&quot;totalSalary&quot;];</div><div class="line">      _totalSalary = newTotalSalary;</div><div class="line">      [self didChangeValueForKey:@&quot;totalSalary&quot;];</div><div class="line">  &#125;</div><div class="line">&#125;</div><div class="line"> </div><div class="line"> - (NSNumber *)totalSalary &#123;</div><div class="line">  return _totalSalary;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+</li>
+<li><p>使用iOS中观察者模式的另一种实现方式：通知 (NSNotification) ，有关通知相关的概念和用法，可以参考我上一篇文章 <a href="http://www.jianshu.com/p/8832f019c17f" target="_blank" rel="external">浅谈 iOS Notification</a> 。😜</p>
+</li>
+</ol>
+<h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><p>说了这么多，KVO的原理到底是什么呢？</p>
+<p>先上官方文档：<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line">  Automatic key-value observing is implemented using a technique called </div><div class="line">isa-swizzling...When an observer is registered for an attribute of an</div><div class="line">object the isa pointer of the observed object is modified, pointing to</div><div class="line"> an intermediate class rather than at the true class. As a result the </div><div class="line">value of the isa pointer does not necessarily reflect the actual class</div><div class="line">of the instance.</div></pre></td></tr></table></figure></p>
+<p>对于KVO实现的原理，苹果官方文档描述的比较少，从中只能知道苹果使用了一张叫做<code>isa-swizzling</code>的黑魔法…</p>
+<p><strong>其实，当某个类的对象第一次被观察时，系统就会在运行期动态地创建该类的一个派生类（类名就是在该类的前面加上<code>NSKVONotifying_</code>  前缀），在这个派生类中重写基类中任何被观察属性的 setter 方法。</strong></p>
+<p><strong>派生类在被重写的 setter 方法实现真正的通知机制，就如前面手动实现键值观察那样，调用<code>willChangeValueForKey:</code>和<code>didChangeValueForKey:</code>方法。这么做是基于设置属性会调用 setter 方法，而通过重写就获得了 KVO 需要的通知机制。当然前提是要通过遵循 KVO 的属性设置方式来变更属性值，如果仅是直接修改属性对应的成员变量，是无法实现 KVO 的。</strong></p>
+<p><strong>同时派生类还重写了 class 方法以“欺骗”外部调用者它就是起初的那个类。然后系统将这个对象的 isa 指针指向这个新诞生的派生类，因此这个对象就成为该派生类的对象了，因而在该对象上对 setter 的调用就会调用重写的 setter，从而激活键值通知机制。此外，派生类还重写了 dealloc 方法来释放资源。</strong></p>
+<h3 id="自己实现KVO"><a href="#自己实现KVO" class="headerlink" title="自己实现KVO"></a>自己实现KVO</h3><p>港真，原生的KVO API是不太友好的，需要监听者对象，和被监听的对象分别去实现一些东西，代码实现比较分散，并且响应通知的方法也不能自定义，只能在苹果提供的方法中处理，不能用我们熟悉的<code>block</code>或者<code>Target-Action</code>，最后还不能忘了调用<code>removeObserve</code>方法，一忘可能程序运行的时候就奔溃了…</p>
+<p>在知道了KVO的使用方法和内部原理之后，我们其实可以自己去实现一个使用起来更加便捷，API更加友好的KVO的，这类的实现网上有很多，我就不献丑了… github上也有一些开源的实现代码，感兴趣的童鞋可以自行查阅。</p>
+<p>其实基本思路和苹果官方的原理差不多，都是创建一个原类的派生类当做中间类，再把原来的对象指向这个中间类，再重写监听属性的Setter方法，在属性改变后调用回调通知监听者。</p>
+<hr>
+<h4 id="参考："><a href="#参考：" class="headerlink" title="参考："></a>参考：</h4><p><a href="https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/KeyValueObserving/KeyValueObserving.html#//apple_ref/doc/uid/10000177-BCICJDHA" target="_blank" rel="external">KVO官方文档</a><br><a href="https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/KeyValueCoding/index.html#//apple_ref/doc/uid/10000107-SW1" target="_blank" rel="external">KVC官方文档</a><br><a href="http://yulingtianxia.com/blog/2014/05/12/objective-czhong-de-kvche-kvo/" target="_blank" rel="external">Objective-C中的KVC和KVO</a><br><a href="http://blog.csdn.net/kesalin/article/details/8194240" target="_blank" rel="external">详解键值观察（KVO）及其实现机理</a></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+        
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/05/29/深入浅出 JavaScriptCore/" rel="next" title="深入浅出 JavaScriptCore">
+                <i class="fa fa-chevron-left"></i> 深入浅出 JavaScriptCore
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/05/29/【译】理解 Objective-C Runtime/" rel="prev" title="理解 Objective-C Runtime">
+                理解 Objective-C Runtime <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.git"
+               alt="邓凯辉" />
+          <p class="site-author-name" itemprop="name">邓凯辉</p>
+           
+              <p class="site-description motion-element" itemprop="description">你必须非常努力，才能看起来毫不费力。</p>
+          
+        </div>
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+              <a href="/archives">
+                <span class="site-state-item-count">4</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#Why？"><span class="nav-number">1.</span> <span class="nav-text">Why？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#What？"><span class="nav-number">2.</span> <span class="nav-text">What？</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#KVO"><span class="nav-number">2.0.1.</span> <span class="nav-text">KVO</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#How"><span class="nav-number">3.</span> <span class="nav-text">How?</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#1-添加监听"><span class="nav-number">3.0.1.</span> <span class="nav-text">1. 添加监听</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#2-接受通知"><span class="nav-number">3.0.2.</span> <span class="nav-text">2. 接受通知</span></a></li><li class="nav-item nav-level-5"><a class="nav-link" href="#3-移除监听"><span class="nav-number">3.0.3.</span> <span class="nav-text">3. 移除监听</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#More"><span class="nav-number">4.</span> <span class="nav-text">More</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#原理"><span class="nav-number">5.</span> <span class="nav-text">原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#自己实现KVO"><span class="nav-number">6.</span> <span class="nav-text">自己实现KVO</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#参考："><span class="nav-number">6.1.</span> <span class="nav-text">参考：</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">邓凯辉</span>
+</div>
+
+
+<div class="powered-by">
+  由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Muse
+  </a>
+</div>
+
+
+        
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.1"></script>
+
+
+
+  
+  
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.1"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
